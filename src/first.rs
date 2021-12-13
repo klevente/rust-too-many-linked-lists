@@ -1,3 +1,5 @@
+use std::mem;
+
 /// declare a `List` type only containing the `head`, so that internal types are not leaked out to users
 pub struct List {
     head: Link,
@@ -15,11 +17,22 @@ enum Link {
 
 struct Node {
     elem: i32,
-    next: List,
+    next: Link,
 }
 
 impl List {
     pub fn new() -> Self {
         Self { head: Link::Empty }
+    }
+
+    pub fn push(&mut self, elem: i32) {
+        let new_node = Box::new(Node {
+            elem,
+            // temporarily replace `self.head` with `Empty`, while returning the old value to `next`,
+            // so that the newly added `Node` points to the rest of the list
+            next: mem::replace(&mut self.head, Link::Empty),
+        });
+        // link up `head` to point to the newly added `Node`
+        self.head = Link::More(new_node);
     }
 }
