@@ -1,5 +1,3 @@
-use std::mem;
-
 pub struct List<T> {
     head: Link<T>,
 }
@@ -12,9 +10,18 @@ struct Node<T> {
     next: Link<T>,
 }
 
+// tuple struct for holding the `List` converted into an `Iterator`
+// these structs are useful for wrapping values simply (newtype)
+pub struct IntoIter<T>(List<T>);
+
 impl<T> List<T> {
     pub fn new() -> Self {
         Self { head: None }
+    }
+
+    // `into_iter` consumes the original collection, hence type parameter `<T>` and taking `self` by value
+    pub fn into_iter(self) -> IntoIter<T> {
+        IntoIter(self)
     }
 
     pub fn push(&mut self, elem: T) {
@@ -50,11 +57,19 @@ impl<T> List<T> {
 
 impl<T> Drop for List<T> {
     fn drop(&mut self) {
-        let mut cur_link = mem::replace(&mut self.head, None);
+        let mut cur_link = self.head.take();
 
         while let Some(mut boxed_node) = cur_link {
             cur_link = boxed_node.next.take()
         }
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        // simply access the underlying `List` and `pop` the front element, which already returns an `Option<T>`
+        self.0.pop()
     }
 }
 
@@ -110,5 +125,19 @@ mod test {
 
         assert_eq!(list.peek(), Some(&42));
         assert_eq!(list.pop(), Some(42));
+    }
+
+    #[test]
+    fn into_iter() {
+        let mut list = List::new();
+        list.push(1);
+        list.push(2);
+        list.push(3);
+
+        let mut iter = list.into_iter();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(2));
+        assert_eq!(iter.next(), Some(1));
+        assert_eq!(iter.next(), None);
     }
 }
