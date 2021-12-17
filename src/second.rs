@@ -20,20 +20,20 @@ impl List {
     pub fn push(&mut self, elem: i32) {
         let new_node = Box::new(Node {
             elem,
-            next: mem::replace(&mut self.head, None),
+            // `take` is the same as `mem::replace`, but more idiomatic, i.e it moves out the value
+            // contained by the `Option`, leaving a `None` in its place
+            next: self.head.take(),
         });
 
         self.head = Some(new_node);
     }
 
     pub fn pop(&mut self) -> Option<i32> {
-        match mem::replace(&mut self.head, Link::None) {
-            None => None,
-            Some(node) => {
-                self.head = node.next;
-                Some(node.elem)
-            }
-        }
+        // use `map` to apply a function to the inner value if it is available, i.e. `Some(v)`
+        self.head.take().map(|node| {
+            self.head = node.next;
+            node.elem
+        })
     }
 }
 
@@ -42,7 +42,7 @@ impl Drop for List {
         let mut cur_link = mem::replace(&mut self.head, None);
 
         while let Some(mut boxed_node) = cur_link {
-            cur_link = mem::replace(&mut boxed_node.next, None);
+            cur_link = boxed_node.next.take()
         }
     }
 }
