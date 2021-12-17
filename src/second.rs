@@ -10,10 +10,6 @@ struct Node<T> {
     next: Link<T>,
 }
 
-// tuple struct for holding the `List` converted into an `Iterator`
-// these structs are useful for wrapping values simply (newtype)
-pub struct IntoIter<T>(List<T>);
-
 impl<T> List<T> {
     pub fn new() -> Self {
         Self { head: None }
@@ -22,6 +18,17 @@ impl<T> List<T> {
     // `into_iter` consumes the original collection, hence type parameter `<T>` and taking `self` by value
     pub fn into_iter(self) -> IntoIter<T> {
         IntoIter(self)
+    }
+
+    // `iter` returns a type for iterating over the collection, the head is passed by reference to `Iter`,
+    // along with taking self by a const reference (`&self`)
+    // because of lifetime elision rules, the compiler assumes that `self` must live as long as `Iter`, which is correct
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            // `as_deref` takes the underlying value as a reference, instead of having to use
+            // `as_ref`, `map` and an assortment of `*`s and `&`s to get the desired type (namely `|node| &**node`)
+            next: self.head.as_deref(),
+        }
     }
 
     pub fn push(&mut self, elem: T) {
@@ -65,11 +72,34 @@ impl<T> Drop for List<T> {
     }
 }
 
+// tuple struct for holding the `List` converted into an `Iterator`
+// these structs are useful for wrapping values simply (newtype)
+pub struct IntoIter<T>(List<T>);
+
 impl<T> Iterator for IntoIter<T> {
+    // as the collection is consumed, this `Iterator` yields `T`s by value
     type Item = T;
     fn next(&mut self) -> Option<Self::Item> {
         // simply access the underlying `List` and `pop` the front element, which already returns an `Option<T>`
         self.0.pop()
+    }
+}
+
+// struct for handling `iter()`, which holds a reference to the `Node` it needs to yield next, or `None`, if exhausted
+pub struct Iter<'a, T> {
+    // as this structs holds a reference, it must name the lifetime that reference needs to be valid for
+    next: Option<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    // as the collection is not consumed and cannot be modified, this `Iterator` yields `T`s by const reference
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        // unwrap the value contained by the current node, alongside with moving to the next one
+        self.next.map(|node| {
+            self.next = node.next.as_deref();
+            &node.elem
+        })
     }
 }
 
@@ -139,5 +169,18 @@ mod test {
         assert_eq!(iter.next(), Some(2));
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn iter() {
+        let mut list = List::new();
+        list.push(1);
+        list.push(2);
+        list.push(3);
+
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&1));
     }
 }
