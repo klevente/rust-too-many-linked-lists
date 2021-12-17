@@ -1,6 +1,6 @@
 use std::mem;
 
-/// declare a `List` type only containing the `head`, so that internal types are not leaked out to users
+/// Declare a `List` type only containing the `head`, so that internal types are not leaked out to users
 pub struct List {
     head: Link,
 }
@@ -46,5 +46,41 @@ impl List {
                 Some(node.elem)
             }
         }
+    }
+}
+
+/// This indicates that the `test` module should only be compiled when running tests
+#[cfg(test)]
+mod test {
+    // `List` needs to be explicitly pulled in from the parent module
+    use super::List;
+
+    #[test]
+    fn basics() {
+        let mut list = List::new();
+
+        // check that empty list behaves right
+        assert_eq!(list.pop(), None);
+
+        // populate list
+        list.push(1);
+        list.push(2);
+        list.push(3);
+
+        // check normal removal
+        assert_eq!(list.pop(), Some(3));
+        assert_eq!(list.pop(), Some(2));
+
+        // push some more just to make sure nothing's corrupted
+        list.push(4);
+        list.push(5);
+
+        // check normal removal
+        assert_eq!(list.pop(), Some(5));
+        assert_eq!(list.pop(), Some(4));
+
+        // check exhaustion
+        assert_eq!(list.pop(), Some(1));
+        assert_eq!(list.pop(), None);
     }
 }
