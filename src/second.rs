@@ -117,6 +117,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<Self::Item> {
         // `take` the current element in order to allow returning a mutable reference of the wrapped element
+        // this also ensures that the reference to the actual element is singleton, as the `Option` is `None` after `take`
         self.next.take().map(|node| {
             self.next = node.next.as_deref_mut();
             &mut node.elem
