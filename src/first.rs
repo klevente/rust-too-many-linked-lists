@@ -49,6 +49,23 @@ impl List {
     }
 }
 
+impl Drop for List {
+    fn drop(&mut self) {
+        // replace the `head` with `Empty` and get the actual head of the list
+        let mut cur_link = mem::replace(&mut self.head, Link::Empty);
+        // go through each element until the end
+        while let Link::More(mut boxed_node) = cur_link {
+            // move out the current `Node` and replace it with `Empty`
+            cur_link = mem::replace(&mut boxed_node.next, Link::Empty);
+            // `boxed_node` goes out of scope here, which means it gets `drop`ped
+            // as its internal contents have been replaced with `Empty`, no recursion occurs during `drop`ping
+
+            // by resorting to the compiler's `Drop` implementation, unbounded recursion could occur,
+            // which can overflow the stack
+        }
+    }
+}
+
 /// This indicates that the `test` module should only be compiled when running tests
 #[cfg(test)]
 mod test {
