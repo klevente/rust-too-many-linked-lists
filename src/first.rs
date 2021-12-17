@@ -35,4 +35,16 @@ impl List {
         // link up `head` to point to the newly added `Node`
         self.head = Link::More(new_node);
     }
+
+    pub fn pop(&mut self) -> Option<i32> {
+        // temporarily replace `self.head` with `Empty`, so the head of the list can be moved out by value,
+        // as it needs to be removed from the list
+        match mem::replace(&mut self.head, Link::Empty) {
+            Link::Empty => None,
+            Link::More(node) => {
+                self.head = node.next;
+                Some(node.elem)
+            }
+        }
+    }
 }
