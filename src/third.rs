@@ -8,6 +8,9 @@ use std::rc::Rc;
 ///               ^
 ///               |
 /// list3 -> X ---+
+///
+/// If thread safety is needed, every `Rc` just needs to be replaced with `Arc`, and it will be safe.
+/// This is because `Arc` = `Rc`, it is just a bit slower because it uses `Atomic`s instead of `Cell`s for reference counting
 
 pub struct List<T> {
     head: Link<T>,
