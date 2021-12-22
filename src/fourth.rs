@@ -1,4 +1,4 @@
-use std::cell::{Ref, RefCell};
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 pub struct List<T> {
@@ -62,6 +62,21 @@ impl<T> List<T> {
         }
     }
 
+    pub fn push_back(&mut self, elem: T) {
+        let new_tail = Node::new(elem);
+        match self.tail.take() {
+            Some(old_tail) => {
+                old_tail.borrow_mut().next = Some(new_tail.clone());
+                new_tail.borrow_mut().prev = Some(old_tail);
+                self.tail = Some(new_tail);
+            }
+            None => {
+                self.head = Some(new_tail.clone());
+                self.tail = Some(new_tail);
+            }
+        }
+    }
+
     pub fn pop_front(&mut self) -> Option<T> {
         // need to take the `old_head` off the beginning, ensuring it is -2
         // -1 `old_head`
@@ -93,6 +108,21 @@ impl<T> List<T> {
         })
     }
 
+    pub fn pop_back(&mut self) -> Option<T> {
+        self.tail.take().map(|old_tail| {
+            match old_tail.borrow_mut().prev.take() {
+                Some(new_tail) => {
+                    new_tail.borrow_mut().next.take();
+                    self.tail = Some(new_tail);
+                }
+                None => {
+                    self.head.take();
+                }
+            }
+            Rc::try_unwrap(old_tail).ok().unwrap().into_inner().elem
+        })
+    }
+
     /// `RefCell`s return a type called `Ref` when calling `borrow`, which keeps track of when the current borrow
     /// should be `drop`ped, this function cannot return `Option<&T>`, as the resulting `Ref` coming from `borrow` would
     /// get `drop`ped inside this function, invalidating the underlying shared reference.
@@ -106,6 +136,24 @@ impl<T> List<T> {
             .as_ref()
             // create a `borrow` for the underlying `Node`, and map it so only the `elem` is visible to the caller
             .map(|node| Ref::map(node.borrow(), |node| &node.elem))
+    }
+
+    pub fn peek_back(&self) -> Option<Ref<T>> {
+        self.tail
+            .as_ref()
+            .map(|node| Ref::map(node.borrow(), |node| &node.elem))
+    }
+
+    pub fn peek_back_mut(&mut self) -> Option<RefMut<T>> {
+        self.tail
+            .as_ref()
+            .map(|node| RefMut::map(node.borrow_mut(), |node| &mut node.elem))
+    }
+
+    pub fn peek_front_mut(&mut self) -> Option<RefMut<T>> {
+        self.head
+            .as_ref()
+            .map(|node| RefMut::map(node.borrow_mut(), |node| &mut node.elem))
     }
 }
 
