@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::rc::Rc;
 
 pub struct List<T> {
@@ -92,6 +92,31 @@ impl<T> List<T> {
             Rc::try_unwrap(old_head).ok().unwrap().into_inner().elem
         })
     }
+
+    /// `RefCell`s return a type called `Ref` when calling `borrow`, which keeps track of when the current borrow
+    /// should be `drop`ped, this function cannot return `Option<&T>`, as the resulting `Ref` coming from `borrow` would
+    /// get `drop`ped inside this function, invalidating the underlying shared reference.
+    /// Instead, an `Option<Ref<T>>` can be returned, which can be dereferenced the same ways a a `&T`, as
+    /// it also implements the `Deref` trait. For this, the function `Ref::map` can be used, which creates a new
+    /// `Ref` instance that holds the value defined by a mapping function it requires, which can extract data
+    /// from the passed in `Ref<T>`, converting it to `Ref<U>`, which is connected to the same `RefCell` as
+    /// the original `Ref<T>`, which is exactly what is needed in this case.
+    pub fn peek_front(&self) -> Option<Ref<T>> {
+        self.head
+            .as_ref()
+            // create a `borrow` for the underlying `Node`, and map it so only the `elem` is visible to the caller
+            .map(|node| Ref::map(node.borrow(), |node| &node.elem))
+    }
+}
+
+impl<T> Drop for List<T> {
+    fn drop(&mut self) {
+        // keep removing the `head` of the `List` until there is nothing left. after each removal,
+        // the `Node` the appropriate reference counts decrement, which eventually lead to the whole
+        // `List` get freed appropriately. This implementation is important, as otherwise,
+        // the reference counts of `Rc`s would be stuck at 1 because they would be pointing at each other
+        while self.pop_front().is_some() {}
+    }
 }
 
 #[cfg(test)]
@@ -125,5 +150,16 @@ mod test {
         // Check exhaustion
         assert_eq!(list.pop_front(), Some(1));
         assert_eq!(list.pop_front(), None);
+    }
+
+    #[test]
+    fn peek() {
+        let mut list = List::new();
+        assert!(list.peek_front().is_none());
+        list.push_front(1);
+        list.push_front(2);
+        list.push_front(3);
+
+        assert_eq!(&*list.peek_front().unwrap(), &3);
     }
 }
