@@ -61,4 +61,35 @@ impl<T> List<T> {
             }
         }
     }
+
+    pub fn pop_front(&mut self) -> Option<T> {
+        // need to take the `old_head` off the beginning, ensuring it is -2
+        // -1 `old_head`
+        self.head.take().map(|old_head| {
+            match old_head.borrow_mut().next.take() {
+                // `List` that has not emptied by taking out `head`
+                // -1 `new_head`
+                Some(new_head) => {
+                    new_head.borrow_mut().prev.take(); // -1 `old_head`
+                    self.head = Some(new_head); // +1 `new_head`
+                                                // total: -2 `old_head`, +0 `new_head`
+                }
+                None => {
+                    // `List` that has become empty by taking out `head`
+                    self.tail.take(); // -1 `old_head`
+                                      // total: -2 `old_head`, +0 `new_head`
+                }
+            }
+            // `try_unwrap` is required so the underlying `Refcell<Node<T>>` is moved out of the pointer,
+            // this should always succeed, as the program is written correctly, i.e. the variable named `old_head`
+            // is the last one referencing the data held by this `Rc`, so it can safely unwrap it.
+            // as `try_unwrap` returns a `Result`, it must be `unwrap`ped, but `unwrap` requires that the
+            // underlying value implements the `Debug` trait; while `RefCell` does, our `Node<T`> does not,
+            // as it would required `T` to be `Debug`, which is an unnecessary constraint, hence the `Result`
+            // is converted into an `Option` using `ok`.
+            // after this, the resulting `RefCell` is consumed using `into_inner`, which returns the
+            // value that is contained by it, so finally, the element can be safely moved out to the caller
+            Rc::try_unwrap(old_head).ok().unwrap().into_inner().elem
+        })
+    }
 }
